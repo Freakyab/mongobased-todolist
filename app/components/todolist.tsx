@@ -1,12 +1,13 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { IoMdAddCircle, IoMdCheckmarkCircleOutline } from "react-icons/io";
 import { FaCircle, FaRegCheckCircle, FaMoon } from "react-icons/fa";
 import { RiEdit2Line } from "react-icons/ri";
 import { IoSunnyOutline } from "react-icons/io5";
 import { MdDelete } from "react-icons/md";
 import { addTodo, getTodos, updateTodo, deleteTodo } from "../action/todo";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 type Todo = {
   id: string;
@@ -25,18 +26,20 @@ const TodoList = () => {
   const [todos, setTodos] = useState<Todo[]>([]); // State for storing todos
   const [editMode, setEditMode] = useState(false);
   const [id, setId] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchTodos = async () => {
+      setLoading(true);
       const { data, error } = await getTodos();
       if (error) {
         console.error(error);
       } else {
-        console.log(data, "data");
         if (data) {
           setTodos(data);
         }
       }
+      setLoading(false);
     };
     fetchTodos();
   }, [editMode]);
@@ -47,6 +50,7 @@ const TodoList = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (editMode) {
       const { data, error } = await updateTodo(id, {
         title: newTodoText.title,
@@ -54,11 +58,11 @@ const TodoList = () => {
         done: newTodoText.done,
       });
       if (error) {
-        console.error(error);
+        toast.error("Error updating todo");
         return;
       }
       if (data) {
-        console.log(data, "data");
+        toast.success("Todo updated successfully");
       }
       setEditMode(false);
       setId("");
@@ -66,6 +70,7 @@ const TodoList = () => {
       return;
     }
     if (newTodoText.message.trim() === "" || newTodoText.title.trim() === "") {
+      toast.error("Title and message cannot be empty");
       return;
     }
     const { data, error } = await addTodo({
@@ -75,10 +80,12 @@ const TodoList = () => {
     });
 
     if (error) {
+      toast.error("Error adding todo");
       console.error(error);
     }
 
     if (data) {
+      toast.success("Todo added successfully");
       setTodos([...todos, data]);
     }
 
@@ -92,7 +99,7 @@ const TodoList = () => {
       done: !todo.done,
     });
     if (error) {
-      console.error(error);
+      toast.error("Error updating todo");
       return;
     }
 
@@ -104,6 +111,7 @@ const TodoList = () => {
         return t;
       });
       setTodos(updatedTodos);
+      toast.success("Todo updated successfully");
     }
   };
 
@@ -116,11 +124,13 @@ const TodoList = () => {
   const handleRemoveTodo = async (id: string) => {
     const { data, error } = await deleteTodo(id);
     if (error) {
+      toast.error("Error deleting todo");
       console.error(error);
       return;
     }
 
     if (data) {
+      toast.success("Todo deleted successfully");
       const updatedTodos = todos.filter((t) => t.id !== id);
       setTodos(updatedTodos);
     }
@@ -156,24 +166,6 @@ const TodoList = () => {
           <form
             onSubmit={handleSubmit}
             className="flex items-center flex-row-reverse">
-            <motion.button
-              type="submit"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}>
-              {!editMode ? (
-                <IoMdAddCircle
-                  className={`text-3xl ${
-                    darkMode ? "text-blue-300" : "text-pink-500"
-                  }`}
-                />
-              ) : (
-                <IoMdCheckmarkCircleOutline
-                  className={`text-3xl ${
-                    darkMode ? "text-blue-300" : "text-pink-500"
-                  }`}
-                />
-              )}
-            </motion.button>
             <div className="flex flex-col w-full">
               <input
                 type="text"
@@ -201,71 +193,121 @@ const TodoList = () => {
                     : "bg-gray-100 text-gray-800"
                 } transition-colors duration-300`}
               />
+              {editMode ? (
+                <motion.button
+                  type="submit"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  className={`bg-red-500 text-white px-4 py-2 rounded-md mt-2 transition-colors duration-300`}>
+                  Update Todo
+                </motion.button>
+              ) : (
+                <button
+                  type="submit"
+                  className={`bg-blue-500 text-white px-4 py-2 rounded-md mt-2 transition-colors duration-300`}>
+                  Add Todo
+                </button>
+              )}
             </div>
           </form>
         </div>
         {/* Todo list */}
         <div className="mt-8 w-full">
           {/* Mapping through todos and rendering them */}
-          {todos.map((todo) => (
-            <motion.div
-              key={todo.id}
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-              className={`flex items-center justify-between gap-3 rounded-md shadow-lg hover:shadow-2xl p-4 mb-4 ${
-                todo.done ? "line-through text-gray-500" : "text-gray-800"
-              } ${
-                darkMode ? "bg-gray-800" : "bg-white"
-              } transition-all duration-300`}>
-              {/* Button to toggle todo completion */}
-              <button onClick={() => handleCompleteTodo(todo.id, todo)}>
-                {todo.done ? (
-                  <FaRegCheckCircle className="text-green-500 text-2xl" />
-                ) : (
-                  <FaCircle
-                    className={`
+          {!loading ? (
+            todos.map((todo) => (
+              <motion.div
+                key={todo.id}
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{
+                  opacity: 0,
+                  scale: 0.95,
+                  transition: { duration: 0.2 },
+                }}
+                className={`flex items-center justify-between gap-3 rounded-md shadow-lg hover:shadow-2xl p-4 mb-4 ${
+                  todo.done ? "line-through text-gray-500" : "text-gray-800"
+                } ${
+                  darkMode ? "bg-gray-800" : "bg-white"
+                } transition-all duration-300`}>
+                {/* Button to toggle todo completion */}
+                <button onClick={() => handleCompleteTodo(todo.id, todo)}>
+                  {todo.done ? (
+                    <FaRegCheckCircle className="text-green-500 text-2xl" />
+                  ) : (
+                    <FaCircle
+                      className={`
                   text-xl ${darkMode ? "text-blue-300" : "text-pink-500"}
                     `}
-                  />
-                )}
-              </button>
-              {/* Text of the todo */}
-              <div className="flex flex-col w-full">
-                <p
-                  className={`text-lg capitalize font-semibold underline
+                    />
+                  )}
+                </button>
+                {/* Text of the todo */}
+                <div className="flex flex-col w-full">
+                  <p
+                    className={`text-lg capitalize font-semibold underline
                 ${darkMode ? "text-blue-300" : "text-pink-500"}
                   `}>
-                  {todo.title}
-                </p>
-                <p
-                  className={`px-2
+                    {todo.title}
+                  </p>
+                  <p
+                    className={`px-2
                 ${darkMode ? "text-gray-300" : "text-gray-800"}
                   `}>
-                  {todo.message}
-                </p>
-              </div>
-              {/* Buttons for editing and removing todo */}
-              <div className="flex flex-col items-center gap-2">
-                <motion.button
-                  onClick={() => handleEditTodo(todo.id)}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  className="border-2 border-blue-500 rounded-md p-1">
-                  <RiEdit2Line className="text-blue-500 text-lg" />
-                </motion.button>
-                <motion.button
-                  onClick={() => handleRemoveTodo(todo.id)}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  className="border-2 border-red-500 rounded-md p-1">
-                  <MdDelete className="text-red-500 text-lg" />
-                </motion.button>
-              </div>
-            </motion.div>
-          ))}
+                    {todo.message}
+                  </p>
+                </div>
+                {/* Buttons for editing and removing todo */}
+                <div className="flex flex-col items-center gap-2">
+                  <motion.button
+                    onClick={() => handleEditTodo(todo.id)}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="border-2 border-blue-500 rounded-md p-1">
+                    <RiEdit2Line className="text-blue-500 text-lg" />
+                  </motion.button>
+                  <motion.button
+                    onClick={() => handleRemoveTodo(todo.id)}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="border-2 border-red-500 rounded-md p-1">
+                    <MdDelete className="text-red-500 text-lg" />
+                  </motion.button>
+                </div>
+              </motion.div>
+            ))
+          ) : (
+            <div
+              className={`${
+                darkMode ? "bg-gray-800" : "bg-white"
+              } p-4 rounded-md`}>
+              <p
+                className={`text-lg ${
+                  darkMode ? "text-gray-300" : "text-gray-800"
+                }`}>
+                Loading todos
+                <span
+                  className={`animate-spin duration-100 inline-block ml-2 text-lg ${
+                    darkMode ? "text-blue-300" : "text-pink-500"
+                  }`}>
+                  ⏳
+                </span>
+              </p>
+            </div>
+          )}
         </div>
       </div>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
     </div>
   );
 };
